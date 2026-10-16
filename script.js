@@ -6,7 +6,7 @@ function Run()
     var sch=document.getElementById("select_alg").value;
     console.log(sch)
     if (sch == "0" ) {
-        alert("Scheduling algoritması Seçilmeli");
+        alert("Scheduling algoritması Seçilmelii");
         return;
     };
     const rows = document.querySelectorAll('#tableProcessBody tr');
