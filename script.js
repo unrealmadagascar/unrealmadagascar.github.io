@@ -6,7 +6,7 @@ function Run()
     var sch=document.getElementById("select_alg").value;
     console.log(sch)
     if (sch == "0" ) {
-        alert("Scheduling algoritması Seçilmelii");
+        alert("Scheduling algoritması seçilmeli");
         return;
     };
     const rows = document.querySelectorAll('#tableProcessBody tr');
@@ -43,6 +43,32 @@ function Run()
     }
 
     alert(`${processList.length} adet proses başarıyla alındı.`);
+
+    switch (sch) {
+        
+        case "1":
+            console.log("1 seçildi.");
+
+            break; // Diğer case'lere geçmesini engellemek için ŞARTTIR!
+
+        case "2":
+            console.log("Workload A seçildi.");
+            break;
+
+        case "3":
+            console.log("Gelecekte ekleyebileceğiniz başka bir iş yükü...");
+            break;
+
+        case "4":
+            var timeQuantum = document.getElementById("timeQuantum").value;
+
+            break;
+
+        default:
+            // Yukarıdaki seçeneklerin hiçbiriyle eşleşmezse çalışacak varsayılan kod
+            console.log("Tanımlanmayan bir seçim yapıldı.");
+            break;
+    }
 
 
 };
@@ -110,7 +136,16 @@ function RemoveTableBody()
             tbody.innerHTML = ""; 
 
 };
+function handleAlgorithmChange() {
+    const algorithmSelect = document.getElementById("select_alg");
+    const quantumGroup = document.getElementById("quantumGroup");
 
+    if (algorithmSelect.value == "4") {
+        quantumGroup.classList.remove("hidden"); // RR seçildiyse gizliliği kaldır, göster
+    } else {
+        quantumGroup.classList.add("hidden");    // Diğerleriyse tekrar gizle
+    }
+};
 function ChoosedWorkload(cw)
 {
 
@@ -159,3 +194,28 @@ function ChoosedWorkload(cw)
     }
 };
 
+//Scheduling algoritmaları
+
+function FCFS(processList) {
+
+
+
+};
+
+function SJF(processList) {
+
+
+    
+};
+
+function SRTF(processList) {
+
+
+    
+};
+
+function RR(processList) {
+
+
+    
+};
