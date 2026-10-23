@@ -47,9 +47,11 @@
               id="select_alg"
               onchange="handleAlgorithmChange()"
             >
-              <option value="0">Scheduling Algorithmss</option>
+              <option value="0">Scheduling Algorithms</option>
               <option value="1">First-Come, First-Served (FCFS)</option>
-              <option value="2">Shortest Job First (SJF - non-preemptive)</option>
+              <option value="2">
+                Shortest Job First (SJF - non-preemptive)
+              </option>
               <option value="3">Shortest Remaining Time First (SRTF)</option>
               <option value="4">Round Robin (RR)</option>
             </select>
@@ -96,6 +98,7 @@
                       class="form-control form-control-sm"
                       type="number"
                       id="txtArrival"
+                      min="0"
                     />
                   </td>
                   <td>
@@ -103,6 +106,7 @@
                       class="form-control form-control-sm"
                       type="number"
                       id="txtBurst"
+                      min="1"
                     />
                   </td>
                   <td>

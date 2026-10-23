@@ -8,7 +8,6 @@ function Run() {
   const form = document.getElementById("roadRunner");
   var wl = document.getElementById("select_work").value;
   var sch = document.getElementById("select_alg").value;
-  console.log(sch);
   if (sch == "0") {
     alert("Scheduling algoritması seçilmeli");
     return;
@@ -28,24 +27,37 @@ function Run() {
       const cpuBurst = inputs[2].value; // Üçüncü input (CPU Burst)
 
       // Boş satırları filtrelemek için kontrol
-      if (processName !== "") {
+      if (
+        processName !== "" &&
+        arrivalTime !== "" &&
+        cpuBurst !== "" &&
+        cpuBurst !== "0"
+      ) {
         processList.push({
           process: processName,
           arrivalTime: Number(arrivalTime) || 0,
           cpuBurst: Number(cpuBurst) || 0,
         });
+      } else {
+        if (cpuBurst !== "0" || cpuBurst === "") {
+          alert("CpuBurst boş veya 0 olamaz");
+        }
+        alert(
+          "Tabloda eksik veya boş bırakılmış alanlar var! Lütfen tüm bilgileri doldurun.",
+        );
+        throw new Error(
+          "Tabloda eksik veya boş bırakılmış alanlar var! Lütfen tüm bilgileri doldurun.",
+        );
       }
     }
   });
 
-  console.log("Dizi indeksleri kullanılarak toplanan veriler:", processList);
-
   if (processList.length === 0) {
     alert("Tabloda geçerli proses verisi bulunamadı");
-    return;
+    throw new Error(
+      "Tabloda eksik veya boş bırakılmış alanlar var! Lütfen tüm bilgileri doldurun.",
+    );
   }
-
-  alert(`${processList.length} adet proses başarıyla alındı.`);
 
   switch (sch) {
     case "1":
@@ -63,7 +75,14 @@ function Run() {
 
     case "4":
       var timeQuantum = document.getElementById("timeQuantum").value;
-
+      if (timeQuantum !== "0" || timeQuantum === "") {
+        alert("timeQuantum boş veya 0 olamaz");
+        throw new Error(
+          "Tabloda eksik veya boş bırakılmış alanlar var! Lütfen tüm bilgileri doldurun.",
+        );
+      } else {
+        RR(processList,timeQuantum);
+      }
       break;
 
     default:
@@ -83,6 +102,7 @@ function Add() {
   txtArrival.value = "";
   txtBurst.value = "";
 }
+
 function AddProcess(process_id, arrival_time, cpu_burst) {
   var tBody = document
     .getElementById("tblProcess")
@@ -306,16 +326,17 @@ function SRTF(processList) {
   let ganttProcessList = [];
   let processes = processList.toSorted((a, b) => a.arrivalTime - b.arrivalTime);
   let tempList = processes.map((p) => ({ ...p })); // Deep copy of mainList
-  let itemList = [];
+  let newList = [];
+  let workRows = [];
   let idleTime = 0;
+
   do {
     let x = tempList.filter((p) => p.arrivalTime <= clock);
+
     if (x.length !== 0) {
-      //process varsa processleri sıralayıp seçtiği process'e göre idle time oluştur.
-      //Seçtiği process'in burst 1 azalt,clock u attrı çünkü bu bir işlem.
-      //tempListteki processin burst unu azalt, eğer burst 0 ise tempListten sil
       let y = x.toSorted((a, b) => a.cpuBurst - b.cpuBurst);
-      x = 0;
+
+      // Idle (Boşta kalma) kontrolü
       if (idleTime < y[0].arrivalTime) {
         ganttProcessList.push({
           processId: "Idle",
@@ -326,23 +347,81 @@ function SRTF(processList) {
           responseTime: 0,
           isIdle: true,
         });
+        idleTime = y[0].arrivalTime;
       }
-      
+
+      let targetProcess = tempList.find((p) => p.process === y[0].process);
+
+      // Burst değerini 1 azalt
+      targetProcess.cpuBurst--;
+      let restBurst = targetProcess.cpuBurst;
+
+      workRows.push({
+        processId: y[0].process,
+        start: clock,
+      });
+
+      // --- GANTT ŞEMASI BLOK BİRLEŞTİRME MANTIĞI ---
+      let lastBlock = ganttProcessList[ganttProcessList.length - 1];
+
+      if (
+        lastBlock &&
+        lastBlock.processId === y[0].process &&
+        !lastBlock.isIdle
+      ) {
+        // Eğer aynı süreç arka arkaya çalışıyorsa yeni ekleme, sadece bitişi uzat!
+        lastBlock.end = clock + 1;
+      } else {
+        // Süreç değiştiyse veya yeni başlıyorsa listeye yeni blok ekle
+        ganttProcessList.push({
+          processId: y[0].process,
+          start: clock,
+          end: clock + 1,
+          turnaroundTime: 0,
+          waitingTime: 0,
+          responseTime: 0,
+          isIdle: false,
+        });
+      }
+      // -------------------------------------------
+
+      if (restBurst === 0) {
+        let item = workRows.filter((p) => p.processId === y[0].process);
+        let minElement = item.toSorted((a, b) => a.start - b.start)[0];
+        let z = processes.find((p) => p.process === y[0].process);
+
+        newList.push({
+          process: y[0].process,
+          start: minElement.start,
+          completionTime: clock + 1,
+          turnaroundTime: clock + 1 - z.arrivalTime,
+          waitingTime: clock + 1 - z.arrivalTime - z.cpuBurst,
+          responseTime: minElement.start - z.arrivalTime,
+        });
+
+        tempList = removeProcessById(tempList, y[0].process);
+      }
+
+      // Süreç çalıştığı için sonraki olası idle başlangıcı bu saniyenin sonudur
+      idleTime = clock + 1;
     }
 
-    
-    console.log(ganttProcessList);
-  } while (clock < 100);
+    clock++;
+  } while (tempList.length !== 0);
 
-  /* renderResultTable(newList, "Shortest Remaining Time First (SRTF)");
+  renderResultTable(newList, "Shortest Remaining Time First (SRTF)");
   renderGanttChart(ganttProcessList);
   const reportSection = document.getElementById("reportSection"); // ID'nin doğru olduğundan emin ol
   if (reportSection) {
     reportSection.classList.remove("hidden");
-  } */
+  }
 }
 
-function RR(processList) {}
+function RR(processList,timeQuantum) {
+
+
+  
+}
 
 // Sol Tabloyu Doldurma
 function renderResultTable(processes, name) {
