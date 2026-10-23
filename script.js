@@ -6,7 +6,7 @@ function removeProcessById(dizi, id) {
 //-------------Main Function----------------
 function Run() {
   const form = document.getElementById("roadRunner");
-  var wl = document.getElementById("select_work").value;
+  let wl = document.getElementById("select_work").value;
   var sch = document.getElementById("select_alg").value;
   if (sch == "0") {
     alert("Scheduling algoritması seçilmeli");
@@ -74,15 +74,22 @@ function Run() {
       break;
 
     case "4":
-      var timeQuantum = document.getElementById("timeQuantum").value;
-      if (timeQuantum !== "0" || timeQuantum === "") {
-        alert("timeQuantum boş veya 0 olamaz");
-        throw new Error(
-          "Tabloda eksik veya boş bırakılmış alanlar var! Lütfen tüm bilgileri doldurun.",
-        );
-      } else {
-        RR(processList,timeQuantum);
+      const quantumInput = document.getElementById("timeQuantum");
+
+      if (!quantumInput || !quantumInput.value.trim()) {
+        alert("Lütfen bir Time Quantum değeri girin!");
+        throw new Error("Lütfen bir Time Quantum değeri girin!");
       }
+
+      let timeQuantum = Number(quantumInput.value);
+
+      if (isNaN(timeQuantum) || timeQuantum <= 0) {
+        alert("Time Quantum 0'dan büyük bir sayı olmalı!");
+        throw new Error("ime Quantum 0'dan büyük bir sayı olmalı!");
+      }
+
+      RR(processList, timeQuantum);
+
       break;
 
     default:
@@ -163,8 +170,8 @@ function handleAlgorithmChange() {
     quantumGroup.classList.add("hidden"); // Diğerleriyse tekrar gizle
   }
 }
-function ChoosedWorkload(cw) {
-  switch (cw) {
+function ChoosedWorkload(wl) {
+  switch (wl) {
     case "0":
       RemoveTableBody();
       break; // Diğer case'lere geçmesini engellemek için ŞARTTIR!
@@ -417,10 +424,130 @@ function SRTF(processList) {
   }
 }
 
-function RR(processList,timeQuantum) {
+function RR(processList, timeQuantum) {
+  let clock = 0;
+  let ganttProcessList = [];
+  let newList = [];
 
+  // Süreçlerin kopyasını al, varış zamanına ve orijinal sıraya göre sırala
+  let processes = processList
+    .map((p, index) => ({
+      ...p,
+      originalIndex: index,
+      remainingBurst: p.cpuBurst,
+      firstStartTime: -1,
+    }))
+    .sort((a, b) => {
+      if (a.arrivalTime !== b.arrivalTime) {
+        return a.arrivalTime - b.arrivalTime;
+      }
+      return a.originalIndex - b.originalIndex;
+    });
 
-  
+  let queue = [];
+  let processIndex = 0;
+
+  while (queue.length > 0 || processIndex < processes.length) {
+    // 1. Kuyruk boşsa saati bir sonraki sürecin gelişine zıplat (Idle durumu)
+    if (queue.length === 0 && processIndex < processes.length) {
+      if (clock < processes[processIndex].arrivalTime) {
+        let nextArrival = processes[processIndex].arrivalTime;
+        let lastBlock = ganttProcessList[ganttProcessList.length - 1];
+        if (lastBlock && lastBlock.isIdle) {
+          lastBlock.end = nextArrival;
+        } else {
+          ganttProcessList.push({
+            processId: "Idle",
+            start: clock,
+            end: nextArrival,
+            isIdle: true,
+          });
+        }
+        clock = nextArrival;
+      }
+    }
+
+    // 2. O anki clock zamanına kadar gelen süreçleri kuyruğa ekle
+    while (
+      processIndex < processes.length &&
+      processes[processIndex].arrivalTime <= clock
+    ) {
+      queue.push(processes[processIndex]);
+      processIndex++;
+    }
+
+    if (queue.length === 0) continue;
+
+    // 3. Kuyruğun başından sıradaki süreci al
+    let currentProcess = queue.shift();
+
+    if (currentProcess.firstStartTime === -1) {
+      currentProcess.firstStartTime = clock;
+    }
+
+    let executionTime = Math.min(timeQuantum, currentProcess.remainingBurst);
+    let startClock = clock;
+
+    clock += executionTime;
+    currentProcess.remainingBurst -= executionTime;
+
+    // Gantt şemasına ekle
+    let lastBlock = ganttProcessList[ganttProcessList.length - 1];
+    if (
+      lastBlock &&
+      lastBlock.processId === currentProcess.process &&
+      !lastBlock.isIdle
+    ) {
+      lastBlock.end = clock;
+    } else {
+      ganttProcessList.push({
+        processId: currentProcess.process,
+        start: startClock,
+        end: clock,
+        isIdle: false,
+      });
+    }
+
+    // 4. Çalışma süresi boyunca gelen yeni süreçleri yakala
+    let newlyArrived = [];
+    while (
+      processIndex < processes.length &&
+      processes[processIndex].arrivalTime <= clock
+    ) {
+      newlyArrived.push(processes[processIndex]);
+      processIndex++;
+    }
+
+    // 5. KRİTİK DEĞİŞİKLİK: Yeni gelenler, bekleyen kuyruğun önüne (başına) eklenir
+    for (let i = newlyArrived.length - 1; i >= 0; i--) {
+      queue.unshift(newlyArrived[i]);
+    }
+
+    // Süreç bitmediyse kuyruğun en arkasına eklenir, bittiyse listeye eklenir
+    if (currentProcess.remainingBurst === 0) {
+      let turnaroundTime = clock - currentProcess.arrivalTime;
+      let waitingTime = turnaroundTime - currentProcess.cpuBurst;
+      let responseTime =
+        currentProcess.firstStartTime - currentProcess.arrivalTime;
+
+      newList.push({
+        process: currentProcess.process,
+        completionTime: clock,
+        turnaroundTime: turnaroundTime,
+        waitingTime: waitingTime,
+        responseTime: responseTime,
+      });
+    } else {
+      queue.push(currentProcess);
+    }
+  }
+
+  renderResultTable(newList, "Round Robin (RR)");
+  renderGanttChart(ganttProcessList);
+  const reportSection = document.getElementById("reportSection"); // ID'nin doğru olduğundan emin ol
+  if (reportSection) {
+    reportSection.classList.remove("hidden");
+  }
 }
 
 // Sol Tabloyu Doldurma
